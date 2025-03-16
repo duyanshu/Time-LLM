@@ -10,6 +10,7 @@ accelerate launch \
     --root_path ./dataset/ETT-small/ \
     --data_path ETTh1.csv \
     --model_id ETTh1_96_96 \
+    --model_comment single_gpu \
     --model TimeLLM \
     --data ETTh1 \
     --features M \
@@ -23,4 +24,7 @@ accelerate launch \
     --dec_in 7 \
     --c_out 7 \
     --des 'Exp' \
-    --itr 1 
+    --itr 1 \
+    --d_model 512 \
+    --n_heads 8 \
+    --checkpoints ./checkpoints 
