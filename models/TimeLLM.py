@@ -42,38 +42,38 @@ class Model(nn.Module):
         self.stride = configs.stride
 
         if configs.llm_model == 'LLAMA':
+            # 设置模型路径
+            model_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 
+                                    "pretrained_models/llama-7b")
+            
             try:
-                # 首先尝试从本地配置文件加载
-                config_path = os.path.join(os.path.dirname(__file__), '../configs/llama_config.json')
-                self.llama_config = LlamaConfig.from_pretrained(config_path)
-                print("Using local LLaMA config file")
+                print(f"Loading LLaMA from {model_path}")
+                self.llama_config = LlamaConfig.from_pretrained(model_path)
+                self.llama_config.num_hidden_layers = configs.llm_layers
+                self.llama_config.output_attentions = True
+                self.llama_config.output_hidden_states = True
+                
+                # 从本地加载模型
+                self.llm_model = LlamaModel.from_pretrained(
+                    model_path,
+                    config=self.llama_config,
+                    local_files_only=True
+                )
+                print("Successfully loaded LLaMA model")
+                
+                # 从本地加载tokenizer
+                self.tokenizer = LlamaTokenizer.from_pretrained(
+                    model_path,
+                    local_files_only=True
+                )
+                if not hasattr(self.tokenizer, 'pad_token') or self.tokenizer.pad_token is None:
+                    self.tokenizer.pad_token = self.tokenizer.eos_token
+                print("Successfully loaded tokenizer")
+                
             except Exception as e:
-                print(f"Failed to load local config, trying online: {e}")
-                try:
-                    self.llama_config = LlamaConfig.from_pretrained('huggyllama/llama-7b')
-                except Exception as e:
-                    print(f"Failed to load config: {e}")
-                    raise
-
-            self.llama_config.num_hidden_layers = configs.llm_layers
-            self.llama_config.output_attentions = True
-            self.llama_config.output_hidden_states = True
-
-            try:
-                self.llm_model = LlamaModel.from_config(self.llama_config)
-                print("Initialized LLaMA model from config")
-            except Exception as e:
-                print(f"Failed to initialize LLaMA model: {e}")
+                print(f"Error loading model: {e}")
+                print("Please run 'python scripts/download_models.py' first to download the model")
                 raise
-
-            # Initialize tokenizer with basic settings
-            self.tokenizer = LlamaTokenizer.from_pretrained(
-                'huggyllama/llama-7b',
-                local_files_only=True,
-                config=self.llama_config
-            )
-            if not hasattr(self.tokenizer, 'pad_token') or self.tokenizer.pad_token is None:
-                self.tokenizer.pad_token = self.tokenizer.eos_token
         elif configs.llm_model == 'GPT2':
             self.gpt2_config = GPT2Config.from_pretrained('openai-community/gpt2')
 
