@@ -5,6 +5,8 @@ from accelerate import DistributedDataParallelKwargs
 from torch import nn, optim
 from torch.optim import lr_scheduler
 from tqdm import tqdm
+import torch.cuda
+from accelerate.utils import set_seed
 
 from models import Autoformer, DLinear, TimeLLM
 
@@ -99,9 +101,33 @@ parser.add_argument('--llm_layers', type=int, default=6)
 parser.add_argument('--percent', type=int, default=100)
 
 args = parser.parse_args()
+
+# Add device checking and configuration before initializing accelerator
+if torch.cuda.is_available():
+    n_gpu = torch.cuda.device_count()
+    if n_gpu < 8:  # Adjust this number based on your GPU setup
+        print(f"Warning: Script configured for 8 GPUs but only {n_gpu} available")
+        # Optional: Exit if not enough GPUs
+        # raise RuntimeError(f"This script requires 8 GPUs but only {n_gpu} available")
+else:
+    print("Warning: No GPU available, falling back to CPU")
+    
+# Set manual seed for reproducibility 
+set_seed(args.seed)
+
+# Initialize accelerator with device placement strategy
 ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
 deepspeed_plugin = DeepSpeedPlugin(hf_ds_config='./ds_config_zero2.json')
-accelerator = Accelerator(kwargs_handlers=[ddp_kwargs], deepspeed_plugin=deepspeed_plugin)
+
+try:
+    accelerator = Accelerator(
+        kwargs_handlers=[ddp_kwargs],
+        deepspeed_plugin=deepspeed_plugin,
+        device_placement=True,  # Let accelerator handle device placement
+    )
+except RuntimeError as e:
+    print(f"Accelerator initialization failed: {e}")
+    raise
 
 for ii in range(args.itr):
     # setting record of experiments
