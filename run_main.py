@@ -130,7 +130,6 @@ try:
         deepspeed_plugin=deepspeed_plugin,
         device_placement=True,
         mixed_precision='no',  # Disable mixed precision to simplify debugging
-        num_processes=n_gpu,  # Use available GPU count
     )
 except RuntimeError as e:
     print(f"Accelerator initialization failed: {e}")
