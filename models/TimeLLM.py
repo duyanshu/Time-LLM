@@ -42,45 +42,38 @@ class Model(nn.Module):
         self.stride = configs.stride
 
         if configs.llm_model == 'LLAMA':
-            # self.llama_config = LlamaConfig.from_pretrained('/mnt/alps/modelhub/pretrained_model/LLaMA/7B_hf/')
-            self.llama_config = LlamaConfig.from_pretrained('huggyllama/llama-7b')
+            try:
+                # 首先尝试从本地配置文件加载
+                config_path = os.path.join(os.path.dirname(__file__), '../configs/llama_config.json')
+                self.llama_config = LlamaConfig.from_pretrained(config_path)
+                print("Using local LLaMA config file")
+            except Exception as e:
+                print(f"Failed to load local config, trying online: {e}")
+                try:
+                    self.llama_config = LlamaConfig.from_pretrained('huggyllama/llama-7b')
+                except Exception as e:
+                    print(f"Failed to load config: {e}")
+                    raise
+
             self.llama_config.num_hidden_layers = configs.llm_layers
             self.llama_config.output_attentions = True
             self.llama_config.output_hidden_states = True
+
             try:
-                self.llm_model = LlamaModel.from_pretrained(
-                    # "/mnt/alps/modelhub/pretrained_model/LLaMA/7B_hf/",
-                    'huggyllama/llama-7b',
-                    trust_remote_code=True,
-                    local_files_only=True,
-                    config=self.llama_config,
-                    # load_in_4bit=True
-                )
-            except EnvironmentError:  # downloads model from HF is not already done
-                print("Local model files not found. Attempting to download...")
-                self.llm_model = LlamaModel.from_pretrained(
-                    # "/mnt/alps/modelhub/pretrained_model/LLaMA/7B_hf/",
-                    'huggyllama/llama-7b',
-                    trust_remote_code=True,
-                    local_files_only=False,
-                    config=self.llama_config,
-                    # load_in_4bit=True
-                )
-            try:
-                self.tokenizer = LlamaTokenizer.from_pretrained(
-                    # "/mnt/alps/modelhub/pretrained_model/LLaMA/7B_hf/tokenizer.model",
-                    'huggyllama/llama-7b',
-                    trust_remote_code=True,
-                    local_files_only=True
-                )
-            except EnvironmentError:  # downloads the tokenizer from HF if not already done
-                print("Local tokenizer files not found. Atempting to download them..")
-                self.tokenizer = LlamaTokenizer.from_pretrained(
-                    # "/mnt/alps/modelhub/pretrained_model/LLaMA/7B_hf/tokenizer.model",
-                    'huggyllama/llama-7b',
-                    trust_remote_code=True,
-                    local_files_only=False
-                )
+                self.llm_model = LlamaModel.from_config(self.llama_config)
+                print("Initialized LLaMA model from config")
+            except Exception as e:
+                print(f"Failed to initialize LLaMA model: {e}")
+                raise
+
+            # Initialize tokenizer with basic settings
+            self.tokenizer = LlamaTokenizer.from_pretrained(
+                'huggyllama/llama-7b',
+                local_files_only=True,
+                config=self.llama_config
+            )
+            if not hasattr(self.tokenizer, 'pad_token') or self.tokenizer.pad_token is None:
+                self.tokenizer.pad_token = self.tokenizer.eos_token
         elif configs.llm_model == 'GPT2':
             self.gpt2_config = GPT2Config.from_pretrained('openai-community/gpt2')
 
