@@ -7,6 +7,9 @@ from torch.optim import lr_scheduler
 from tqdm import tqdm
 import torch.cuda
 from accelerate.utils import set_seed
+import os
+import requests
+from huggingface_hub import HfFolder
 
 from models import Autoformer, DLinear, TimeLLM
 
@@ -14,12 +17,32 @@ from data_provider.data_factory import data_provider
 import time
 import random
 import numpy as np
-import os
 
+# 设置环境变量
 os.environ['CURL_CA_BUNDLE'] = ''
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:64"
 
-from utils.tools import del_files, EarlyStopping, adjust_learning_rate, vali, load_content
+# 配置代理
+os.environ["HTTP_PROXY"] = "http://127.0.0.1:1080"  # 根据你的实际代理设置修改
+os.environ["HTTPS_PROXY"] = "http://127.0.0.1:1080"  # 根据你的实际代理设置修改
+
+# 如果你有 Hugging Face token，也可以设置
+# HfFolder.save_token('your_token_here')  # 替换为你的 token
+
+# 配置请求的超时和重试
+import requests
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry
+
+retry_strategy = Retry(
+    total=3,
+    backoff_factor=1,
+    status_forcelist=[429, 500, 502, 503, 504],
+)
+adapter = HTTPAdapter(max_retries=retry_strategy)
+session = requests.Session()
+session.mount("https://", adapter)
+session.mount("http://", adapter)
 
 parser = argparse.ArgumentParser(description='Time-LLM')
 
