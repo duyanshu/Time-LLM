@@ -107,23 +107,30 @@ if torch.cuda.is_available():
     n_gpu = torch.cuda.device_count()
     if n_gpu < 8:  # Adjust this number based on your GPU setup
         print(f"Warning: Script configured for 8 GPUs but only {n_gpu} available")
-        # Optional: Exit if not enough GPUs
-        # raise RuntimeError(f"This script requires 8 GPUs but only {n_gpu} available")
+        # Exit if GPU count is insufficient
+        if n_gpu < 1:
+            raise RuntimeError("This script requires at least 1 GPU")
 else:
-    print("Warning: No GPU available, falling back to CPU")
+    raise RuntimeError("No GPU available, this script requires GPU support")
     
 # Set manual seed for reproducibility 
 set_seed(args.seed)
 
 # Initialize accelerator with device placement strategy
 ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
-deepspeed_plugin = DeepSpeedPlugin(hf_ds_config='./ds_config_zero2.json')
+deepspeed_plugin = DeepSpeedPlugin(
+    hf_ds_config='./ds_config_zero2.json',
+    zero3_init_flag=False,  # Disable Zero-3 initialization
+    zero_stage=2,
+)
 
 try:
     accelerator = Accelerator(
         kwargs_handlers=[ddp_kwargs],
         deepspeed_plugin=deepspeed_plugin,
-        device_placement=True,  # Let accelerator handle device placement
+        device_placement=True,
+        mixed_precision='no',  # Disable mixed precision to simplify debugging
+        num_processes=n_gpu,  # Use available GPU count
     )
 except RuntimeError as e:
     print(f"Accelerator initialization failed: {e}")
